@@ -78,6 +78,36 @@ class ApiError(MonkeyError):
         self.code = code
 
 
+# 失败原因分类，用于告警里一眼区分故障类型
+FAILURE_REASONS = {
+    "cookie_expired": "登录态失效（Cookie 过期/无效）",
+    "network": "网络异常",
+    "server_reject": "服务端拒绝",
+    "protocol": "协议/响应异常",
+    "cap_failed": "Cap 校验失败",
+    "config": "账号配置错误",
+    "unknown": "未分类异常",
+}
+
+
+def classify_failure(exc: BaseException) -> str:
+    """把异常映射到可读的失败原因分类键。"""
+    if isinstance(exc, ApiError):
+        if exc.status in (401, 403):
+            return "cookie_expired"
+        return "server_reject"
+    if isinstance(exc, NetworkError):
+        return "network"
+    if isinstance(exc, ProtocolError):
+        if "Cap" in str(exc):
+            return "cap_failed"
+        return "protocol"
+    if isinstance(exc, ValueError):
+        return "config"
+    return "unknown"
+
+
+
 @dataclass(frozen=True)
 class Account:
     provider: str
@@ -93,6 +123,7 @@ class AccountResult:
     outcome: str
     message: str
     detail: Dict[str, Any] = field(default_factory=dict)
+    reason: str = ""  # 失败原因分类键（成功时为空）
 
 
 def _env(name: str) -> str:
@@ -223,6 +254,14 @@ def request_json(
         response = session.request(method, url, json=body, timeout=timeout)
     except requests.RequestException as exc:
         raise NetworkError(_sanitize(f"网络请求失败：{exc}")) from exc
+
+    # 先判状态码：cookie 失效时服务端返回纯文本 401/403，若先解析 JSON 会误报成"非 JSON"
+    if response.status_code in (401, 403):
+        raise ApiError(
+            "登录态失效（Cookie 过期或无效），需重新导出 monkeycode_ai_session",
+            status=response.status_code,
+            code=response.status_code,
+        )
 
     try:
         payload = response.json()
@@ -500,6 +539,7 @@ def run_account(
             ok=False,
             outcome="failed",
             message="签到提交已返回，但服务端回读仍为未签到",
+            reason="protocol",
             detail={
                 "before": _status_view(before),
                 "after": _status_view(after),
@@ -523,6 +563,8 @@ def format_summary(results: Sequence[AccountResult]) -> str:
             f"{icon} {result.account.label} · {PROVIDER_LABELS[result.account.provider]} · "
             f"{result.outcome} · {result.message}"
         )
+        if not result.ok and result.reason:
+            lines.append(f"   原因：{FAILURE_REASONS.get(result.reason, result.reason)}")
         if result.detail:
             after = result.detail.get("after") or result.detail.get("before")
             if isinstance(after, dict):
@@ -688,6 +730,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     ok=False,
                     outcome="failed",
                     message=_sanitize(exc),
+                    reason=classify_failure(exc),
                 )
             )
         except Exception as exc:  # keep one account from aborting the batch
@@ -697,6 +740,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     ok=False,
                     outcome="failed",
                     message=_sanitize(f"未分类异常：{exc}"),
+                    reason="unknown",
                 )
             )
 
