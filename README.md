@@ -117,6 +117,7 @@ GET  /api/v1/users/wallet/checkin
 | `SERVERCHAN_SENDKEY` | 否 | Server酱。 |
 | `WXPUSHER_APP_TOKEN` / `WXPUSHER_UID` | 否 | WxPusher。 |
 | `WECOM_WEBHOOK` | 否 | 企业微信机器人。 |
+| `FEISHU_WEBHOOK` | 否 | 飞书自定义机器人 Webhook。 |
 | `DINGTALK_WEBHOOK` / `DINGTALK_SECRET` | 否 | 钉钉机器人。 |
 
 ---
@@ -180,6 +181,7 @@ task monkeycode_daily.py
 | `PUSHPLUS_TOKEN` / `BARK_URL` / `SERVERCHAN_SENDKEY` | 推送。 |
 | `WXPUSHER_APP_TOKEN` / `WXPUSHER_UID` | WxPusher。 |
 | `WECOM_WEBHOOK` | 企业微信机器人。 |
+| `FEISHU_WEBHOOK` | 飞书自定义机器人 Webhook。 |
 | `DINGTALK_WEBHOOK` / `DINGTALK_SECRET` | 钉钉机器人。 |
 
 内置定时为 UTC `23 23 * * *`，对应北京时间约 07:23。工作流不单独上传 artifact，运行结果保留在 Actions 日志。
