@@ -546,11 +546,25 @@ def _notify_enabled(results: Sequence[AccountResult]) -> bool:
     return True
 
 
-def _post_notification(url: str, **kwargs: Any) -> None:
+def _post_notification(url: str, *, ok_codes: Sequence[int] = (0,), **kwargs: Any) -> None:
     try:
         response = requests.post(url, timeout=DEFAULT_TIMEOUT, **kwargs)
         if response.status_code >= 400:
             print(f"⚠️ 推送失败 HTTP {response.status_code}", file=sys.stderr)
+            return
+        # 飞书等渠道失败时也返回 HTTP 200，需检查 body 里的业务码
+        try:
+            payload = response.json()
+        except ValueError:
+            return
+        if isinstance(payload, dict):
+            for key in ("code", "StatusCode", "errcode"):
+                if key in payload:
+                    code = _as_int(payload.get(key))
+                    if code is not None and code not in ok_codes:
+                        msg = payload.get("msg") or payload.get("StatusMessage") or payload.get("errmsg")
+                        print(f"⚠️ 推送业务失败 code={code} msg={msg}", file=sys.stderr)
+                    break
     except requests.RequestException as exc:
         print(f"⚠️ 推送异常：{_sanitize(exc)}", file=sys.stderr)
 
@@ -592,6 +606,28 @@ def send_notification(text: str, results: Sequence[AccountResult]) -> None:
         _post_notification(
             wecom,
             json={"msgtype": "markdown", "markdown": {"content": text}},
+        )
+    feishu = _env("FEISHU_WEBHOOK")
+    if feishu:
+        ok_count = sum(1 for result in results if result.ok)
+        total = len(results)
+        if ok_count == total and total:
+            title = f"✅ MonkeyCode Daily · {ok_count}/{total} 成功"
+        elif ok_count:
+            title = f"⚠️ MonkeyCode Daily · {ok_count}/{total} 成功"
+        else:
+            title = f"❌ MonkeyCode Daily · 0/{total} 成功"
+        content = [
+            [{"tag": "text", "text": line}]
+            for line in text.splitlines()
+            if line.strip()
+        ]
+        _post_notification(
+            feishu,
+            json={
+                "msg_type": "post",
+                "content": {"post": {"zh_cn": {"title": title, "content": content}}},
+            },
         )
     dingtalk = _env("DINGTALK_WEBHOOK")
     if dingtalk:
