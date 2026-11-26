@@ -2,8 +2,9 @@ name: Keepalive
 
 on:
   schedule:
-    # 每月 1 日 00:00 UTC（北京时间 08:00）产生一次真实提交，避免定时任务因 60 天无活动被禁用
+    # 每月 1 日、15 日 00:00 UTC（北京时间 08:00）各产生一次真实提交，避免定时任务因 60 天无活动被禁用
     - cron: "0 0 1 * *"
+    - cron: "0 0 15 * *"
   workflow_dispatch:
 
 permissions:
