@@ -30,6 +30,7 @@ jobs:
       WXPUSHER_APP_TOKEN: ${{ secrets.WXPUSHER_APP_TOKEN }}
       WXPUSHER_UID: ${{ secrets.WXPUSHER_UID }}
       WECOM_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}
+      FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
       DINGTALK_WEBHOOK: ${{ secrets.DINGTALK_WEBHOOK }}
       DINGTALK_SECRET: ${{ secrets.DINGTALK_SECRET }}
     steps:
